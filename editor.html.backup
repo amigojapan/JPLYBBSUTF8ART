@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Braille UTF8 art Editor for JPLY BBS</title>
+<title>Braille ASCII Editor PRO</title>
 
 <style>
 body {
@@ -75,8 +75,8 @@ canvas {
   <button onclick="copyOutput()">Copy</button>
   <button onclick="saveLocal()">Save</button>
   <button onclick="loadLocal()">Load</button>
-  <button onclick="downloadTXT()">Download TXT</button>
-  <input type="file" accept=".txt" onchange="uploadTXT(event)">
+  <button onclick="downloadJSON()">Download</button>
+  <input type="file" onchange="uploadJSON(event)">
   <input type="file" accept="image/*" onchange="importImage(event)">
 </div>
 
@@ -156,9 +156,6 @@ function drawLine(x0,y0,x1,y1){
 }
 
 function drawRect(x0,y0,x1,y1){
-  if(x0>x1)[x0,x1]=[x1,x0];
-  if(y0>y1)[y0,y1]=[y1,y0];
-
   for(let x=x0;x<=x1;x++){
     applyPixel(x,y0);
     applyPixel(x,y1);
@@ -286,34 +283,32 @@ function clearGrid(){
   render();
 }
 
-// ===== SAVE / LOAD (TEXT) =====
+// ===== SAVE/LOAD =====
 function saveLocal(){
-  localStorage.setItem("brailleArt", convert());
+  localStorage.setItem("brailleArt",JSON.stringify(grid));
 }
 function loadLocal(){
-  let data = localStorage.getItem("brailleArt");
-  if(data){
-    document.getElementById("output").textContent = data;
-  }
+  let d=localStorage.getItem("brailleArt");
+  if(d) grid=JSON.parse(d);
+  render();
 }
 
-function downloadTXT(){
-  let blob = new Blob([convert()], {type:"text/plain"});
-  let a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "art.txt";
+function downloadJSON(){
+  let blob=new Blob([JSON.stringify(grid)],{type:"application/json"});
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="art.json";
   a.click();
 }
 
-function uploadTXT(e){
-  let file = e.target.files[0];
-  let reader = new FileReader();
-
-  reader.onload = () => {
-    document.getElementById("output").textContent = reader.result;
+function uploadJSON(e){
+  let f=e.target.files[0];
+  let r=new FileReader();
+  r.onload=()=>{
+    grid=JSON.parse(r.result);
+    render();
   };
-
-  reader.readAsText(file);
+  r.readAsText(f);
 }
 
 // ===== IMAGE IMPORT =====
