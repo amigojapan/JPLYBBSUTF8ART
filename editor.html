@@ -65,6 +65,8 @@ canvas {
   <button class="toolBtn" onclick="setTool('erase')">Erase</button>
   <button class="toolBtn" onclick="setTool('line')">Line</button>
   <button class="toolBtn" onclick="setTool('rect')">Rect</button>
+  <button class="toolBtn" onclick="setTool('fill')">Fill</button>
+  <button onclick="undo()">Undo</button>
 </div>
 
 <canvas id="canvas"></canvas>
@@ -83,15 +85,26 @@ canvas {
 <pre id="output"></pre>
 
 <script>
-// ===== PALETTE =====
+// ===== PALETTE (UNCHANGED) =====
 function getColor(n) {
-  const table = {
-    0:"#000000",1:"#ffffff",2:"#808080",3:"#659BDF",
-    4:"#a9a9a9",7:"#c0c0c0",8:"#dda0dd",9:"#ee82ee",
-    10:"#ff0000",11:"#ffa500",12:"#ffff00",13:"#008000",
-    14:"#0000ff",15:"#4b0082",16:"#800080"
-  };
-  return table.hasOwnProperty(n) ? table[n] : "#000";
+    const table = {
+        0:"#000000",
+        1:"#ffffff",
+        2:"#808080",
+        3:"#659BDF",
+        4:"#a9a9a9",
+        7:"#c0c0c0",
+        8:"#dda0dd",
+        9:"#ee82ee",
+        10:"#ff0000",
+        11:"#ffa500",
+        12:"#ffff00",
+        13:"#008000",
+        14:"#0000ff",
+        15:"#4b0082",
+        16:"#800080"
+    };
+    return table[n] || "#ffffff";
 }
 
 // ===== CONFIG =====
@@ -101,6 +114,22 @@ let tool="draw";
 
 // ===== GRID =====
 let grid=Array.from({length:H},()=>Array.from({length:W},()=>({on:0,color:0})));
+
+// ===== UNDO =====
+let history=[];
+const MAX_HISTORY=50;
+
+function saveState(){
+  history.push(JSON.stringify(grid));
+  if(history.length>MAX_HISTORY) history.shift();
+}
+
+function undo(){
+  if(history.length>0){
+    grid=JSON.parse(history.pop());
+    render();
+  }
+}
 
 // ===== CANVAS =====
 const canvas=document.getElementById("canvas");
@@ -123,7 +152,7 @@ function render(){
 function setTool(t){
   tool=t;
   document.querySelectorAll(".toolBtn").forEach(b=>b.classList.remove("active"));
-  [...document.querySelectorAll(".toolBtn")].find(b=>b.textContent.toLowerCase()==t).classList.add("active");
+  [...document.querySelectorAll(".toolBtn")].find(b=>b.textContent.toLowerCase()==t)?.classList.add("active");
 }
 
 // ===== INPUT =====
@@ -142,6 +171,29 @@ function applyPixel(x,y,erase=false){
   grid[y][x]=erase?{on:0,color:0}:{on:1,color:currentColor};
 }
 
+// ===== FILL =====
+function floodFill(x,y){
+  if(!grid[y]||!grid[y][x]) return;
+
+  let target=grid[y][x];
+  let stack=[[x,y]];
+
+  if(target.on===1 && target.color===currentColor) return;
+
+  while(stack.length){
+    let [cx,cy]=stack.pop();
+    let p=grid[cy]?.[cx];
+    if(!p) continue;
+
+    if(p.on!==target.on || p.color!==target.color) continue;
+
+    grid[cy][cx]={on:1,color:currentColor};
+
+    stack.push([cx+1,cy],[cx-1,cy],[cx,cy+1],[cx,cy-1]);
+  }
+}
+
+// ===== LINE =====
 function drawLine(x0,y0,x1,y1){
   let dx=Math.abs(x1-x0),sx=x0<x1?1:-1;
   let dy=-Math.abs(y1-y0),sy=y0<y1?1:-1;
@@ -155,6 +207,7 @@ function drawLine(x0,y0,x1,y1){
   }
 }
 
+// ===== RECT =====
 function drawRect(x0,y0,x1,y1){
   if(x0>x1)[x0,x1]=[x1,x0];
   if(y0>y1)[y0,y1]=[y1,y0];
@@ -169,13 +222,17 @@ function drawRect(x0,y0,x1,y1){
   }
 }
 
+// ===== EVENTS =====
 canvas.addEventListener("mousedown",e=>{
+  saveState();
+
   drawing=true;
   let p=getPos(e);
   startX=p.x;startY=p.y;
 
   if(tool==="draw") applyPixel(p.x,p.y);
   if(tool==="erase") applyPixel(p.x,p.y,true);
+  if(tool==="fill") floodFill(p.x,p.y);
 
   render();
 });
@@ -204,13 +261,12 @@ window.addEventListener("mouseup",e=>{
 
 // TOUCH
 canvas.addEventListener("touchstart",e=>{
+  saveState();
   drawing=true;
   let p=getPos(e.touches[0]);
   startX=p.x;startY=p.y;
 });
-canvas.addEventListener("touchend",e=>{
-  drawing=false;
-});
+canvas.addEventListener("touchend",()=>drawing=false);
 
 // ===== PALETTE UI =====
 const toolbar=document.getElementById("toolbar");
@@ -286,33 +342,29 @@ function clearGrid(){
   render();
 }
 
-// ===== SAVE / LOAD (TEXT) =====
+// ===== SAVE / LOAD =====
 function saveLocal(){
   localStorage.setItem("brailleArt", convert());
 }
 function loadLocal(){
-  let data = localStorage.getItem("brailleArt");
-  if(data){
-    document.getElementById("output").textContent = data;
-  }
+  let data=localStorage.getItem("brailleArt");
+  if(data) document.getElementById("output").textContent=data;
 }
 
 function downloadTXT(){
-  let blob = new Blob([convert()], {type:"text/plain"});
-  let a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "art.txt";
+  let blob=new Blob([convert()],{type:"text/plain"});
+  let a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="art.txt";
   a.click();
 }
 
 function uploadTXT(e){
-  let file = e.target.files[0];
-  let reader = new FileReader();
-
-  reader.onload = () => {
-    document.getElementById("output").textContent = reader.result;
+  let file=e.target.files[0];
+  let reader=new FileReader();
+  reader.onload=()=>{
+    document.getElementById("output").textContent=reader.result;
   };
-
   reader.readAsText(file);
 }
 
@@ -332,7 +384,6 @@ function importImage(e){
       for(let x=0;x<W;x++){
         let i=(y*W+x)*4;
         let r=data[i],g=data[i+1],b=data[i+2];
-
         let brightness=(r+g+b)/3;
 
         if(brightness>80){
@@ -342,7 +393,6 @@ function importImage(e){
         }
       }
     }
-
     render();
   };
   img.src=URL.createObjectURL(e.target.files[0]);

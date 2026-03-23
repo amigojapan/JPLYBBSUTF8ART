@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Braille ASCII Editor PRO</title>
+<title>Braille UTF8 art Editor for JPLY BBS</title>
 
 <style>
 body {
@@ -75,8 +75,8 @@ canvas {
   <button onclick="copyOutput()">Copy</button>
   <button onclick="saveLocal()">Save</button>
   <button onclick="loadLocal()">Load</button>
-  <button onclick="downloadJSON()">Download</button>
-  <input type="file" onchange="uploadJSON(event)">
+  <button onclick="downloadTXT()">Download TXT</button>
+  <input type="file" accept=".txt" onchange="uploadTXT(event)">
   <input type="file" accept="image/*" onchange="importImage(event)">
 </div>
 
@@ -84,14 +84,48 @@ canvas {
 
 <script>
 // ===== PALETTE =====
+/*
 function getColor(n) {
   const table = {
-    0:"#000000",1:"#ffffff",2:"#808080",3:"#659BDF",
-    4:"#a9a9a9",7:"#c0c0c0",8:"#dda0dd",9:"#ee82ee",
-    10:"#ff0000",11:"#ffa500",12:"#ffff00",13:"#008000",
-    14:"#0000ff",15:"#4b0082",16:"#800080"
+
+       0:"#000000", // black
+        1:"#ffffff", // white
+        2:"#808080", // gray
+        3:"#659BDF", // mid light blue
+        4:"#a9a9a9", // dark gray
+        7:"#c0c0c0", // silver
+        8:"#dda0dd", // plum
+        9:"#ee82ee", // violet
+        10:"#ff0000", // red
+        11:"#ffa500", // orange
+        12:"#ffff00", // yellow
+        13:"#008000", // green
+        14:"#0000ff", // blue
+        15:"#4b0082", // indigo
+        16:"#800080"  // purple
   };
-  return table.hasOwnProperty(n) ? table[n] : "#000";
+  return table.hasOwnProperty(n) //? table[n] : "#000";
+}
+*/
+function getColor(n) {
+    const table = {
+        0:"#000000", // black
+        1:"#ffffff", // white
+        2:"#808080", // gray
+        3:"#659BDF", // mid light blue
+        4:"#a9a9a9", // dark gray
+        7:"#c0c0c0", // silver
+        8:"#dda0dd", // plum
+        9:"#ee82ee", // violet
+        10:"#ff0000", // red
+        11:"#ffa500", // orange
+        12:"#ffff00", // yellow
+        13:"#008000", // green
+        14:"#0000ff", // blue
+        15:"#4b0082", // indigo
+        16:"#800080"  // purple
+    };
+    return table[n] || "#ffffff";
 }
 
 // ===== CONFIG =====
@@ -156,6 +190,9 @@ function drawLine(x0,y0,x1,y1){
 }
 
 function drawRect(x0,y0,x1,y1){
+  if(x0>x1)[x0,x1]=[x1,x0];
+  if(y0>y1)[y0,y1]=[y1,y0];
+
   for(let x=x0;x<=x1;x++){
     applyPixel(x,y0);
     applyPixel(x,y1);
@@ -283,32 +320,34 @@ function clearGrid(){
   render();
 }
 
-// ===== SAVE/LOAD =====
+// ===== SAVE / LOAD (TEXT) =====
 function saveLocal(){
-  localStorage.setItem("brailleArt",JSON.stringify(grid));
+  localStorage.setItem("brailleArt", convert());
 }
 function loadLocal(){
-  let d=localStorage.getItem("brailleArt");
-  if(d) grid=JSON.parse(d);
-  render();
+  let data = localStorage.getItem("brailleArt");
+  if(data){
+    document.getElementById("output").textContent = data;
+  }
 }
 
-function downloadJSON(){
-  let blob=new Blob([JSON.stringify(grid)],{type:"application/json"});
-  let a=document.createElement("a");
-  a.href=URL.createObjectURL(blob);
-  a.download="art.json";
+function downloadTXT(){
+  let blob = new Blob([convert()], {type:"text/plain"});
+  let a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "art.txt";
   a.click();
 }
 
-function uploadJSON(e){
-  let f=e.target.files[0];
-  let r=new FileReader();
-  r.onload=()=>{
-    grid=JSON.parse(r.result);
-    render();
+function uploadTXT(e){
+  let file = e.target.files[0];
+  let reader = new FileReader();
+
+  reader.onload = () => {
+    document.getElementById("output").textContent = reader.result;
   };
-  r.readAsText(f);
+
+  reader.readAsText(file);
 }
 
 // ===== IMAGE IMPORT =====
